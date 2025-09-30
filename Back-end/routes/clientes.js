@@ -8,6 +8,7 @@ const router = express.Router();
 // Validaciones para filtros
 const validarFiltros = [
   query("nombre").isString().optional(),
+  query("apellido").isString().optional(),
   query("telefono").isString().optional(),
   query("email").isEmail().optional(),
 ];
@@ -18,8 +19,6 @@ const validarCliente = [
   body("apellido", "Apellido inválido").isString().isLength({ min: 1, max: 100 }),
   body("telefono", "Teléfono inválido").isString().isLength({ min: 7, max: 15 }),
   body("email", "Email inválido").isEmail().optional(),
-  body("empresa", "Empresa inválida").isString().optional(),
-  body("documento", "Documento inválido").isString().optional(),
 ];
 
 // GET - Listar clientes con filtros
@@ -125,7 +124,7 @@ router.get("/:id/reservas", validarId, verificarValidaciones, async (req, res) =
 // POST - Crear cliente
 router.post("/", validarCliente, verificarValidaciones, async (req, res) => {
   try {
-    const { nombre, apellido, telefono, email, empresa, documento } = req.body;
+    const { nombre, apellido, telefono, email } = req.body;
 
     // Verificar si el teléfono ya existe
     const [existe] = await db.execute(
@@ -142,9 +141,9 @@ router.post("/", validarCliente, verificarValidaciones, async (req, res) => {
 
     const [result] = await db.execute(
       `INSERT INTO clientes 
-        (nombre, apellido, telefono, email, empresa, documento) 
-      VALUES (?, ?, ?, ?, ?, ?)`,
-      [nombre, apellido, telefono, email || null, empresa || null, documento || null]
+        (nombre, apellido, telefono, email) 
+      VALUES (?, ?, ?, ?)`,
+      [nombre, apellido, telefono, email]
     );
 
     res.status(201).json({

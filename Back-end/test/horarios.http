@@ -1,0 +1,33 @@
+@url = http://localhost:3000
+
+### Obtener todos los horarios
+GET {{url}}/horarios
+Accept: application/json
+
+### Ver disponibilidad por fecha
+GET {{url}}/horarios/disponibilidad/2024-01-15
+Accept: application/json
+
+### Crear nuevo horario
+POST {{url}}/horarios
+Content-Type: application/json
+
+{
+  "fecha": "2024-01-15",
+  "hora_inicio": "19:00",
+  "hora_fin": "21:00",
+  "capacidad_maxima": 20,
+  "disponible": true
+}
+
+### Actualizar horario
+PUT {{url}}/horarios/1
+Content-Type: application/json
+
+{
+  "fecha": "2024-01-15",
+  "hora_inicio": "19:30",
+  "hora_fin": "21:30",
+  "capacidad_maxima": 25,
+  "disponible": true
+}

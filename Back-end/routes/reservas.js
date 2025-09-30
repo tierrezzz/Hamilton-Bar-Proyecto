@@ -10,7 +10,6 @@ const validarFiltros = [
   query("fecha_desde").isDate({ format: 'YYYY-MM-DD' }).optional(),
   query("fecha_hasta").isDate({ format: 'YYYY-MM-DD' }).optional(),
   query("estado").isIn(['pendiente', 'confirmada', 'en_curso', 'finalizada', 'cancelada', 'no_show']).optional(),
-  query("tipo_reunion").isIn(['empresarial', 'social', 'celebracion', 'networking', 'otro']).optional(),
 ];
 
 // Validaciones para crear/actualizar reserva
@@ -20,11 +19,6 @@ const validarReserva = [
   body("hora_inicio", "Hora de inicio inválida").matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/),
   body("hora_fin", "Hora de fin inválida").matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/),
   body("numero_personas", "Número de personas inválido").isInt({ min: 1, max: 100 }),
-  body("tipo_reunion", "Tipo de reunión inválido")
-    .isIn(['empresarial', 'social', 'celebracion', 'networking', 'otro']).optional(),
-  body("motivo", "Motivo inválido").isString().optional(),
-  body("observaciones", "Observaciones inválidas").isString().optional(),
-  body("precio_reserva", "Precio inválido").isFloat({ min: 0 }).optional(),
 ];
 
 // Validaciones para cambiar estado
@@ -205,11 +199,7 @@ router.post("/", validarReserva, verificarValidaciones, async (req, res) => {
       fecha_reserva, 
       hora_inicio, 
       hora_fin, 
-      numero_personas,
-      tipo_reunion,
-      motivo,
-      observaciones,
-      precio_reserva
+      numero_personas
     } = req.body;
 
     // Verificar que el cliente existe
@@ -258,18 +248,14 @@ router.post("/", validarReserva, verificarValidaciones, async (req, res) => {
     const [result] = await db.execute(
       `INSERT INTO reservas 
         (cliente_id, fecha_reserva, hora_inicio, hora_fin, numero_personas, 
-         tipo_reunion, motivo, observaciones, precio_reserva, estado) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente')`,
+          estado) 
+      VALUES (?, ?, ?, ?, ?, 'pendiente')`,
       [
         cliente_id,
         fecha_reserva,
         hora_inicio,
         hora_fin,
-        numero_personas,
-        tipo_reunion || 'empresarial',
-        motivo || null,
-        observaciones || null,
-        precio_reserva || 0
+        numero_personas
       ]
     );
 

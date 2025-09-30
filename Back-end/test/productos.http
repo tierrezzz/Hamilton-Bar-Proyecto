@@ -1,0 +1,38 @@
+@url = http://localhost:3000
+
+### Obtener todos los productos
+GET {{url}}/productos
+Accept: application/json
+
+### Obtener producto por ID
+GET {{url}}/productos/1
+Accept: application/json
+
+### Filtrar productos por categoría
+GET {{url}}/productos?categoria_id=5
+Accept: application/json
+
+### Crear nuevo producto
+POST {{url}}/productos
+Content-Type: application/json
+
+{
+  "nombre": "Cerveza Artesanal",
+  "descripcion": "Cerveza IPA local",
+  "precio": 8.50,
+  "categoria_id": 2,
+  "disponible": true
+}
+
+### Actualizar producto
+PUT {{url}}/productos/1
+Content-Type: application/json
+
+{
+  "nombre": "Cerveza Artesanal",
+  "precio": 9.50,
+  "categoria_id": 2
+}
+
+### Eliminar producto
+DELETE {{url}}/productos/1

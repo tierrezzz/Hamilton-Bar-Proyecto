@@ -1,0 +1,39 @@
+@url = http://localhost:3000
+
+### Obtener todas las reservas
+GET {{url}}/reservas
+Accept: application/json
+
+### Obtener reservas filtradas por fecha
+GET {{url}}/reservas?fecha=2024-01-15
+Accept: application/json
+
+### Obtener reserva por ID
+GET {{url}}/reservas/1
+Accept: application/json
+
+### Crear nueva reserva
+POST {{url}}/reservas
+Content-Type: application/json
+
+{
+  "cliente_id": 1,
+  "horario_id": 1,
+  "numero_personas": 4,
+  "notas": "Mesa cerca de la ventana"
+}
+
+### Actualizar reserva
+PUT {{url}}/reservas/1
+Content-Type: application.json
+
+{
+  "cliente_id": 1,
+  "horario_id": 1,
+  "numero_personas": 5,
+  "notas": "Aumentar número de personas",
+  "estado": "confirmada"
+}
+
+### Cancelar reserva
+DELETE {{url}}/reservas/1

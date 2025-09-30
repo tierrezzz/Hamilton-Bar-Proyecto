@@ -1,0 +1,33 @@
+@url = http://localhost:3000
+### Obtener todos los clientes
+GET {{url}}/clientes
+Accept: application/json
+
+### Obtener cliente por ID
+GET {{url}}/clientes/1
+Accept: application/json
+
+### Crear nuevo cliente
+POST {{url}}/clientes
+Content-Type: application/json
+
+{
+  "nombre": "Juan",
+  "apellido": "Perez",
+  "telefono": "+1234567890",
+  "email": "juan@gmail.com"
+}
+
+### Actualizar cliente
+PUT {{url}}/clientes/1
+Content-Type: application/json
+
+{
+  "nombre": "Juan",
+  "apellido": "Perez",
+  "telefono": "+1234567890",
+  "email": "juan@gmail.com"
+}
+
+### Eliminar cliente
+DELETE {{url}}/clientes/1
