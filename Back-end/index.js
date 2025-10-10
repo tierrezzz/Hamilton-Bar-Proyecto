@@ -12,7 +12,7 @@ import horariosRouter from './routes/horarios.js';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 
 // ========================================
 // MIDDLEWARES
@@ -103,13 +103,6 @@ async function iniciarServidor() {
         console.log('✅ Conexión a MySQL establecida');
         
         app.listen(PORT, () => {
-            console.log('╔════════════════════════════════════════╗');
-            console.log('║                                        ║');
-            console.log(`║  🍺 Hamilton Bar API                   ║`);
-            console.log(`║  🚀 Servidor corriendo en puerto ${PORT}  ║`);
-            console.log(`║  📡 http://localhost:${PORT}             ║`);
-            console.log('║                                        ║');
-            console.log('╚════════════════════════════════════════╝');
             console.log('\n📋 Endpoints disponibles:');
             console.log(`   GET    http://localhost:${PORT}/`);
             console.log(`   GET    http://localhost:${PORT}/health`);

@@ -128,16 +128,31 @@ router.post("/", validarCliente, verificarValidaciones, async (req, res) => {
 
     // Verificar si el teléfono ya existe
     const [existe] = await db.execute(
-      "SELECT id FROM clientes WHERE telefono = ?",
-      [telefono]
+      "SELECT id FROM clientes WHERE telefono = ? AND email",
+      [telefono, email]
     );
 
     if (existe.length > 0) {
       return res.status(400).json({
         success: false,
-        message: "Ya existe un cliente con ese teléfono"
+        message: "Ya existe un cliente con ese teléfono "
       });
     }
+
+     // Verificar si el email ya existe
+     const [existeEmail] = await db.execute(
+      "SELECT id FROM clientes WHERE email = ?",
+      [email]
+    );
+
+    if (existeEmail.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Ya existe un cliente con ese email"
+      });
+    }
+  
+  
 
     const [result] = await db.execute(
       `INSERT INTO clientes 
@@ -152,9 +167,11 @@ router.post("/", validarCliente, verificarValidaciones, async (req, res) => {
         id: result.insertId, 
         nombre, 
         apellido, 
-        telefono 
+        telefono,
+        email 
       },
     });
+
   } catch (error) {
     console.error("Error al crear cliente:", error);
     res.status(500).json({ 
@@ -173,7 +190,7 @@ router.put(
   async (req, res) => {
     try {
       const id = Number(req.params.id);
-      const { nombre, apellido, telefono, email, empresa, documento } = req.body;
+      const { nombre, apellido, telefono, email } = req.body;
 
       // Verificar si el cliente existe
       const [clienteExiste] = await db.execute(
@@ -190,8 +207,8 @@ router.put(
 
       // Verificar si el teléfono ya está en uso por otro cliente
       const [telefonoExiste] = await db.execute(
-        "SELECT id FROM clientes WHERE telefono = ? AND id != ?",
-        [telefono, id]
+        "SELECT id FROM clientes WHERE telefono = ? AND email AND id != ?",
+        [telefono, email, id]
       );
 
       if (telefonoExiste.length > 0) {
@@ -203,15 +220,16 @@ router.put(
 
       await db.execute(
         `UPDATE clientes 
-        SET nombre = ?, apellido = ?, telefono = ?, email = ?, empresa = ?, documento = ?
+        SET nombre = ?, apellido = ?, telefono = ?, email = ?
         WHERE id = ?`,
-        [nombre, apellido, telefono, email || null, empresa || null, documento || null, id]
+        [nombre, apellido, telefono, email, id]
       );
 
       res.json({
         success: true,
         data: { id, nombre, apellido, telefono },
       });
+
     } catch (error) {
       console.error("Error al actualizar cliente:", error);
       res.status(500).json({ 

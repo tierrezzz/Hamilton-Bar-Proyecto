@@ -18,10 +18,13 @@ Content-Type: application/json
 
 {
   "cliente_id": 1,
-  "horario_id": 1,
-  "numero_personas": 4,
-  "notas": "Mesa cerca de la ventana"
+  "fecha_reserva": "2025-10-15",
+  "hora_inicio": "14:00:00",
+  "hora_fin": "16:00:00",
+  "numero_personas": 10
+  
 }
+
 
 ### Actualizar reserva
 PUT {{url}}/reservas/1
