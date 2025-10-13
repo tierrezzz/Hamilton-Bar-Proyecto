@@ -12,21 +12,21 @@ POST {{url}}/clientes
 Content-Type: application/json
 
 {
-  "nombre": "Pedro",
+  "nombre": "Facundo",
   "apellido": "Gutierrez",
-  "telefono": "+1234567871",
-  "email": "juan@gmail.com"
+  "telefono": "+1234567876",
+  "email": "juannnnn@gmail.com"
 }
 
 ### Actualizar cliente
-PUT {{url}}/clientes/4
+PUT {{url}}/clientes/5
 Content-Type: application/json
 
 {
   "nombre": "Juan",
   "apellido": "Perez",
-  "telefono": "+1234567888",
-  "email": "juannn@gmail.com"
+  "telefono": "+1234567872",
+  "email": "juannito@gmail.com"
 }
 
 ### Eliminar cliente

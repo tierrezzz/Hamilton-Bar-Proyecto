@@ -9,8 +9,6 @@ const router = express.Router();
 const validarFiltros = [
   query("nombre").isString().optional(),
   query("categoria_id").isInt({ min: 1 }).optional(),
-  query("alcoholico").isBoolean().optional(),
-  query("disponible").isBoolean().optional(),
 ];
 
 // Validaciones para crear/actualizar producto
@@ -19,9 +17,6 @@ const validarProducto = [
   body("descripcion", "Descripción inválida").isString().optional(),
   body("precio", "Precio inválido").isFloat({ min: 0.01 }),
   body("categoria_id", "Categoría inválida").isInt({ min: 1 }),
-  body("disponible", "Disponible debe ser booleano").isBoolean().optional(),
-  body("alcoholico", "Alcohólico debe ser booleano").isBoolean().optional(),
-  body("imagen_url", "URL de imagen inválida").isString().optional(),
 ];
 
 // GET - Listar productos con filtros
@@ -30,7 +25,7 @@ router.get("/", validarFiltros, verificarValidaciones, async (req, res) => {
     const filtros = [];
     const parametros = [];
 
-    const { nombre, categoria_id, alcoholico, disponible } = req.query;
+    const { nombre, categoria_id} = req.query;
 
     if (nombre) {
       filtros.push("p.nombre LIKE ?");
@@ -42,25 +37,12 @@ router.get("/", validarFiltros, verificarValidaciones, async (req, res) => {
       parametros.push(Number(categoria_id));
     }
 
-    if (alcoholico !== undefined) {
-      filtros.push("p.alcoholico = ?");
-      parametros.push(alcoholico === 'true' ? 1 : 0);
-    }
-
-    if (disponible !== undefined) {
-      filtros.push("p.disponible = ?");
-      parametros.push(disponible === 'true' ? 1 : 0);
-    }
-
     let sql = `
       SELECT 
         p.id, 
         p.nombre, 
         p.descripcion,
         p.precio, 
-        p.disponible,
-        p.alcoholico,
-        p.imagen_url,
         c.nombre AS categoria 
       FROM productos p 
       LEFT JOIN categorias c ON p.categoria_id = c.id
@@ -122,24 +104,44 @@ router.post("/", validarProducto, verificarValidaciones, async (req, res) => {
       nombre, 
       descripcion, 
       precio, 
-      categoria_id, 
-      disponible, 
-      alcoholico,
-      imagen_url 
+      categoria_id
     } = req.body;
+
+    // Verificar si ya existe un producto con ese nombre
+    const [existe] = await db.execute(
+      "SELECT id, nombre FROM productos WHERE nombre = ?",
+      [nombre]
+    );
+
+    if (existe.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Ya existe un producto con ese nombre"
+      });
+    }
+
+    // Verificar que la categoría existe
+    const [categoriaExiste] = await db.execute(
+      "SELECT id FROM categorias WHERE id = ?",
+      [categoria_id]
+    );
+
+    if (categoriaExiste.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "La categoría no existe"
+      });
+    }
 
     const [result] = await db.execute(
       `INSERT INTO productos 
-        (nombre, descripcion, precio, categoria_id, disponible, alcoholico, imagen_url) 
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        (nombre, descripcion, precio, categoria_id) 
+      VALUES (?, ?, ?, ?)`,
       [
         nombre, 
         descripcion || null, 
         precio, 
-        categoria_id, 
-        disponible !== undefined ? disponible : true,
-        alcoholico !== undefined ? alcoholico : false,
-        imagen_url || null
+        categoria_id
       ]
     );
 
@@ -175,24 +177,58 @@ router.put(
         descripcion, 
         precio, 
         categoria_id, 
-        disponible,
-        alcoholico,
-        imagen_url 
       } = req.body;
+
+      // Verificar si el producto existe
+      const [productoExiste] = await db.execute(
+        "SELECT id, nombre FROM productos WHERE id = ?",
+        [id]
+      );
+
+      if (productoExiste.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Producto no encontrado"
+        });
+      }
+
+      // Solo verificar nombre duplicado si está cambiando el nombre
+      if (nombre !== productoExiste[0].nombre) {
+        const [nombreExiste] = await db.execute(
+          "SELECT id FROM productos WHERE nombre = ? AND id != ?",
+          [nombre, id]
+        );
+
+        if (nombreExiste.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message: "Ya existe otro producto con ese nombre"
+          });
+        }
+      }
+
+      // Verificar que la categoría existe
+      const [categoriaExiste] = await db.execute(
+        "SELECT id FROM categorias WHERE id = ?",
+        [categoria_id]
+      );
+
+      if (categoriaExiste.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "La categoría no existe"
+        });
+      }
 
       await db.execute(
         `UPDATE productos 
-        SET nombre = ?, descripcion = ?, precio = ?, categoria_id = ?, 
-            disponible = ?, alcoholico = ?, imagen_url = ?
+        SET nombre = ?, descripcion = ?, precio = ?, categoria_id = ?
         WHERE id = ?`,
         [
           nombre, 
           descripcion || null, 
           precio, 
           categoria_id, 
-          disponible !== undefined ? disponible : true,
-          alcoholico !== undefined ? alcoholico : false,
-          imagen_url || null,
           id
         ]
       );
@@ -220,9 +256,26 @@ router.delete(
     try {
       const id = Number(req.params.id);
 
+      // Verificar si el producto existe
+      const [productoExiste] = await db.execute(
+        "SELECT id FROM productos WHERE id = ?",
+        [id]
+      );
+
+      if (productoExiste.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Producto no encontrado"
+        });
+      }
+
       await db.execute("DELETE FROM productos WHERE id = ?", [id]);
       
-      res.json({ success: true, data: { id } });
+      res.json({ 
+        success: true, 
+        message: "Producto eliminado correctamente",
+        data: { id } 
+      });
     } catch (error) {
       console.error("Error al eliminar producto:", error);
       res.status(500).json({ 

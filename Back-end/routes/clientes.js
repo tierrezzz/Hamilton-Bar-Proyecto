@@ -127,38 +127,38 @@ router.post("/", validarCliente, verificarValidaciones, async (req, res) => {
     const { nombre, apellido, telefono, email } = req.body;
 
     // Verificar si el teléfono ya existe
-    const [existe] = await db.execute(
-      "SELECT id FROM clientes WHERE telefono = ? AND email",
-      [telefono, email]
+    const [existeTelefono] = await db.execute(
+      "SELECT id FROM clientes WHERE telefono = ?",
+      [telefono]
     );
 
-    if (existe.length > 0) {
+    if (existeTelefono.length > 0) {
       return res.status(400).json({
         success: false,
-        message: "Ya existe un cliente con ese teléfono "
+        message: "Ya existe un cliente con ese teléfono"
       });
     }
 
-     // Verificar si el email ya existe
-     const [existeEmail] = await db.execute(
-      "SELECT id FROM clientes WHERE email = ?",
-      [email]
-    );
+    // Verificar si el email ya existe (solo si se proporcionó)
+    if (email) {
+      const [existeEmail] = await db.execute(
+        "SELECT id FROM clientes WHERE email = ?",
+        [email]
+      );
 
-    if (existeEmail.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Ya existe un cliente con ese email"
-      });
+      if (existeEmail.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Ya existe un cliente con ese email"
+        });
+      }
     }
-  
-  
 
     const [result] = await db.execute(
       `INSERT INTO clientes 
         (nombre, apellido, telefono, email) 
       VALUES (?, ?, ?, ?)`,
-      [nombre, apellido, telefono, email]
+      [nombre, apellido, telefono, email || null]
     );
 
     res.status(201).json({
@@ -168,7 +168,7 @@ router.post("/", validarCliente, verificarValidaciones, async (req, res) => {
         nombre, 
         apellido, 
         telefono,
-        email 
+        email: email || null
       },
     });
 
@@ -207,8 +207,8 @@ router.put(
 
       // Verificar si el teléfono ya está en uso por otro cliente
       const [telefonoExiste] = await db.execute(
-        "SELECT id FROM clientes WHERE telefono = ? AND email AND id != ?",
-        [telefono, email, id]
+        "SELECT id FROM clientes WHERE telefono = ? AND id != ?",
+        [telefono, id]
       );
 
       if (telefonoExiste.length > 0) {
@@ -218,16 +218,31 @@ router.put(
         });
       }
 
+      // Verificar si el email ya está en uso por otro cliente (solo si se proporcionó)
+      if (email) {
+        const [emailExiste] = await db.execute(
+          "SELECT id FROM clientes WHERE email = ? AND id != ?",
+          [email, id]
+        );
+
+        if (emailExiste.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message: "El email ya está en uso por otro cliente"
+          });
+        }
+      }
+
       await db.execute(
         `UPDATE clientes 
         SET nombre = ?, apellido = ?, telefono = ?, email = ?
         WHERE id = ?`,
-        [nombre, apellido, telefono, email, id]
+        [nombre, apellido, telefono, email || null, id]
       );
 
       res.json({
         success: true,
-        data: { id, nombre, apellido, telefono },
+        data: { id, nombre, apellido, telefono, email: email || null },
       });
 
     } catch (error) {
@@ -249,22 +264,44 @@ router.delete(
     try {
       const id = Number(req.params.id);
 
-      // Verificar si el cliente tiene reservas
-      const [reservas] = await db.execute(
-        "SELECT COUNT(*) as count FROM reservas WHERE cliente_id = ?",
+      // Verificar si el cliente existe
+      const [clienteExiste] = await db.execute(
+        "SELECT id FROM clientes WHERE id = ?",
         [id]
       );
 
-      if (reservas[0].count > 0) {
-        return res.status(400).json({
+      if (clienteExiste.length === 0) {
+        return res.status(404).json({
           success: false,
-          message: "No se puede eliminar el cliente porque tiene reservas asociadas"
+          message: "Cliente no encontrado"
         });
       }
+      // implementar cuando esten todas las tablas hechas.
+      /* Verificar si tiene reservas ACTIVAS
+      const [reservasActivas] = await db.execute(
+        `SELECT COUNT(*) as count 
+         FROM reservas 
+         WHERE cliente_id = ? 
+         AND estado IN ('pendiente', 'confirmada', 'en_curso')`,
+        [id]
+      );
 
+      if (reservasActivas[0].count > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "No se puede eliminar el cliente porque tiene reservas activas"
+        });
+    }*/
+
+      // Eliminar el cliente
       await db.execute("DELETE FROM clientes WHERE id = ?", [id]);
       
-      res.json({ success: true, data: { id } });
+      res.json({ 
+        success: true, 
+        message: "Cliente eliminado correctamente",
+        data: { id } 
+      });
+
     } catch (error) {
       console.error("Error al eliminar cliente:", error);
       res.status(500).json({ 

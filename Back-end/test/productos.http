@@ -9,7 +9,7 @@ GET {{url}}/productos/1
 Accept: application/json
 
 ### Filtrar productos por categoría
-GET {{url}}/productos?categoria_id=5
+GET {{url}}/productos?categoria_id=2
 Accept: application/json
 
 ### Crear nuevo producto
@@ -17,22 +17,21 @@ POST {{url}}/productos
 Content-Type: application/json
 
 {
-  "nombre": "Cerveza Artesanal",
+  "nombre": "Cerveza Budweiser",
   "descripcion": "Cerveza IPA local",
   "precio": 8.50,
-  "categoria_id": 2,
-  "disponible": true
+  "categoria_id": 2
 }
 
 ### Actualizar producto
-PUT {{url}}/productos/1
+PUT {{url}}/productos/3
 Content-Type: application/json
 
 {
   "nombre": "Cerveza Artesanal",
   "precio": 9.50,
-  "categoria_id": 2
+  "categoria_id": 3
 }
 
 ### Eliminar producto
-DELETE {{url}}/productos/1
+DELETE {{url}}/productos/3
