@@ -5,7 +5,11 @@ GET {{url}}/horarios
 Accept: application/json
 
 ### Ver disponibilidad por fecha
-GET {{url}}/horarios/disponibilidad/2024-01-15
+GET {{url}}/horarios/disponibilidad?fecha=2025-10-15
+Accept: application/json
+
+### Ver disponibilidad por fecha mes
+GET {{url}}/horarios/disponibilidad/rango?fecha_inicio=2025-10-01&fecha_fin=2025-10-31
 Accept: application/json
 
 ### Crear nuevo horario
@@ -13,21 +17,19 @@ POST {{url}}/horarios
 Content-Type: application/json
 
 {
-  "fecha": "2024-01-15",
-  "hora_inicio": "19:00",
-  "hora_fin": "21:00",
-  "capacidad_maxima": 20,
-  "disponible": true
+  "dia_semana":"sabado", 
+  "hora_inicio": "18:00:00",
+  "hora_fin": "22:00:00",
+  "activo": true
 }
 
 ### Actualizar horario
-PUT {{url}}/horarios/1
+PUT {{url}}/horarios/9
 Content-Type: application/json
 
 {
-  "fecha": "2024-01-15",
-  "hora_inicio": "19:30",
-  "hora_fin": "21:30",
-  "capacidad_maxima": 25,
-  "disponible": true
+  "dia_semana": "martes",
+  "hora_inicio": "18:00:00",
+  "hora_fin": "22:00:00",
+  "activo": true
 }

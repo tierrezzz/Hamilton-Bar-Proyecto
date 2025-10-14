@@ -7,18 +7,20 @@ const router = express.Router();
 
 // Validaciones para filtros
 const validarFiltros = [
-  query("fecha_desde").isDate({ format: 'YYYY-MM-DD' }).optional(),
-  query("fecha_hasta").isDate({ format: 'YYYY-MM-DD' }).optional(),
+  query("fecha_desde").isISO8601().toDate().optional(),
+  query("fecha_hasta").isISO8601().toDate().optional(),
   query("estado").isIn(['pendiente', 'confirmada', 'en_curso', 'finalizada', 'cancelada', 'no_show']).optional(),
 ];
 
 // Validaciones para crear/actualizar reserva
 const validarReserva = [
   body("cliente_id", "Cliente ID inválido").isInt({ min: 1 }),
-  body("fecha_reserva", "Fecha inválida").isDate({ format: 'YYYY-MM-DD' }),
-  body("hora_inicio", "Hora de inicio inválida").matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/),
-  body("hora_fin", "Hora de fin inválida").matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/),
-  body("numero_personas", "Número de personas inválido").isInt({ min: 1, max: 100 }),
+  body("fecha_reserva", "Fecha inválida").isISO8601().toDate(),
+  body("hora_inicio", "Hora de inicio inválida")
+    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/),
+  body("hora_fin", "Hora de fin inválida")
+    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/),
+  body("numero_personas", "Número de personas inválido").isInt({ min: 1, max: 30 })
 ];
 
 // Validaciones para cambiar estado
@@ -29,6 +31,10 @@ const validarEstado = [
 
 // Función auxiliar para verificar disponibilidad
 async function verificarDisponibilidad(fecha, horaInicio, horaFin, reservaId = null) {
+  // Normalizar hora (agregar segundos si no los tiene)
+  if (horaInicio.length === 5) horaInicio += ':00';
+  if (horaFin.length === 5) horaFin += ':00';
+
   // Validar que horaFin > horaInicio
   if (horaFin <= horaInicio) {
     return {
@@ -54,14 +60,29 @@ async function verificarDisponibilidad(fecha, horaInicio, horaFin, reservaId = n
   // Verificar si hay horarios disponibles para ese día
   const [horarios] = await db.execute(
     `SELECT * FROM horarios_disponibles 
-    WHERE dia_semana = ? AND activo = true AND hora_inicio <= ? AND hora_fin >= ?`,
-    [diaSemana, horaInicio, horaFin]
+    WHERE dia_semana = ? AND activo = true`,
+    [diaSemana]
   );
 
   if (horarios.length === 0) {
     return {
       disponible: false,
-      motivo: `No hay horarios disponibles para ${diaSemana} en ese rango horario`
+      motivo: `El bar está cerrado los ${diaSemana}s`
+    };
+  }
+
+  // Verificar que la reserva esté dentro de algún turno disponible
+  const dentroDeHorario = horarios.some(horario => {
+    return horaInicio >= horario.hora_inicio && horaFin <= horario.hora_fin;
+  });
+
+  if (!dentroDeHorario) {
+    const turnosStr = horarios.map(h => 
+      `${h.hora_inicio.substring(0,5)}-${h.hora_fin.substring(0,5)}`
+    ).join(', ');
+    return {
+      disponible: false,
+      motivo: `Los horarios disponibles para ${diaSemana} son: ${turnosStr}`
     };
   }
 
@@ -105,26 +126,23 @@ router.get("/", validarFiltros, verificarValidaciones, async (req, res) => {
     const filtros = [];
     const parametros = [];
 
-    const { fecha_desde, fecha_hasta, estado, tipo_reunion } = req.query;
+    const { fecha_desde, fecha_hasta, estado } = req.query;
 
     if (fecha_desde) {
+      const fechaStr = new Date(fecha_desde).toISOString().split('T')[0];
       filtros.push("r.fecha_reserva >= ?");
-      parametros.push(fecha_desde);
+      parametros.push(fechaStr);
     }
 
     if (fecha_hasta) {
+      const fechaStr = new Date(fecha_hasta).toISOString().split('T')[0];
       filtros.push("r.fecha_reserva <= ?");
-      parametros.push(fecha_hasta);
+      parametros.push(fechaStr);
     }
 
     if (estado) {
       filtros.push("r.estado = ?");
       parametros.push(estado);
-    }
-
-    if (tipo_reunion) {
-      filtros.push("r.tipo_reunion = ?");
-      parametros.push(tipo_reunion);
     }
 
     let sql = `
@@ -166,8 +184,7 @@ router.get("/:id", validarId, verificarValidaciones, async (req, res) => {
         c.nombre AS cliente_nombre,
         c.apellido AS cliente_apellido,
         c.telefono AS cliente_telefono,
-        c.email AS cliente_email,
-        c.empresa AS cliente_empresa
+        c.email AS cliente_email
       FROM reservas r
       JOIN clientes c ON r.cliente_id = c.id
       WHERE r.id = ?`,
@@ -202,6 +219,8 @@ router.post("/", validarReserva, verificarValidaciones, async (req, res) => {
       numero_personas
     } = req.body;
 
+    const fechaStr = new Date(fecha_reserva).toISOString().split('T')[0];
+
     // Verificar que el cliente existe
     const [cliente] = await db.execute(
       "SELECT id FROM clientes WHERE id = ?",
@@ -217,7 +236,7 @@ router.post("/", validarReserva, verificarValidaciones, async (req, res) => {
 
     // Verificar disponibilidad
     const disponibilidad = await verificarDisponibilidad(
-      fecha_reserva, 
+      fechaStr, 
       hora_inicio, 
       hora_fin
     );
@@ -225,7 +244,6 @@ router.post("/", validarReserva, verificarValidaciones, async (req, res) => {
     if (!disponibilidad.disponible) {
       return res.status(400).json({
         success: false,
-        message: disponibilidad.motivo,
         conflictos: disponibilidad.conflictos
       });
     }
@@ -235,7 +253,7 @@ router.post("/", validarReserva, verificarValidaciones, async (req, res) => {
       "SELECT valor FROM configuracion WHERE clave = 'capacidad_maxima'"
     );
 
-    const capacidadMaxima = parseInt(config[0]?.valor || 50);
+    const capacidadMaxima = parseInt(config[0]?.valor || 30);
 
     if (numero_personas > capacidadMaxima) {
       return res.status(400).json({
@@ -244,17 +262,20 @@ router.post("/", validarReserva, verificarValidaciones, async (req, res) => {
       });
     }
 
+    // Normalizar horas
+    let horaInicioNorm = hora_inicio.length === 5 ? hora_inicio + ':00' : hora_inicio;
+    let horaFinNorm = hora_fin.length === 5 ? hora_fin + ':00' : hora_fin;
+
     // Crear la reserva
     const [result] = await db.execute(
       `INSERT INTO reservas 
-        (cliente_id, fecha_reserva, hora_inicio, hora_fin, numero_personas, 
-          estado) 
+        (cliente_id, fecha_reserva, hora_inicio, hora_fin, numero_personas, estado) 
       VALUES (?, ?, ?, ?, ?, 'pendiente')`,
       [
         cliente_id,
-        fecha_reserva,
-        hora_inicio,
-        hora_fin,
+        fechaStr,
+        horaInicioNorm,
+        horaFinNorm,
         numero_personas
       ]
     );
@@ -264,9 +285,9 @@ router.post("/", validarReserva, verificarValidaciones, async (req, res) => {
       data: { 
         id: result.insertId, 
         cliente_id,
-        fecha_reserva,
-        hora_inicio,
-        hora_fin,
+        fecha_reserva: fechaStr,
+        hora_inicio: horaInicioNorm,
+        hora_fin: horaFinNorm,
         estado: 'pendiente'
       },
     });
@@ -294,11 +315,10 @@ router.put(
         hora_inicio, 
         hora_fin, 
         numero_personas,
-        tipo_reunion,
-        motivo,
-        observaciones,
-        precio_reserva
+        observaciones
       } = req.body;
+
+      const fechaStr = new Date(fecha_reserva).toISOString().split('T')[0];
 
       // Verificar que la reserva existe
       const [reservaExiste] = await db.execute(
@@ -336,7 +356,7 @@ router.put(
 
       // Verificar disponibilidad (excluyendo esta reserva)
       const disponibilidad = await verificarDisponibilidad(
-        fecha_reserva, 
+        fechaStr, 
         hora_inicio, 
         hora_fin,
         id
@@ -350,30 +370,30 @@ router.put(
         });
       }
 
+      // Normalizar horas
+      let horaInicioNorm = hora_inicio.length === 5 ? hora_inicio + ':00' : hora_inicio;
+      let horaFinNorm = hora_fin.length === 5 ? hora_fin + ':00' : hora_fin;
+
       // Actualizar la reserva
       await db.execute(
         `UPDATE reservas 
         SET cliente_id = ?, fecha_reserva = ?, hora_inicio = ?, hora_fin = ?, 
-            numero_personas = ?, tipo_reunion = ?, motivo = ?, observaciones = ?, 
-            precio_reserva = ?
+            numero_personas = ?, observaciones = ?
         WHERE id = ?`,
         [
           cliente_id,
-          fecha_reserva,
-          hora_inicio,
-          hora_fin,
+          fechaStr,
+          horaInicioNorm,
+          horaFinNorm,
           numero_personas,
-          tipo_reunion || 'empresarial',
-          motivo || null,
           observaciones || null,
-          precio_reserva || 0,
           id
         ]
       );
 
       res.json({
         success: true,
-        data: { id, fecha_reserva, hora_inicio, hora_fin },
+        data: { id, fecha_reserva: fechaStr, hora_inicio: horaInicioNorm, hora_fin: horaFinNorm },
       });
     } catch (error) {
       console.error("Error al actualizar reserva:", error);

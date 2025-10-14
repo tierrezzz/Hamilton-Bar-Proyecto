@@ -1,30 +1,22 @@
-import { body, query } from "express-validator";
+import { query } from "express-validator";
 import express from "express";
 import { db } from "../db.js";
-import { validarId, verificarValidaciones } from "../middlewares/validaciones.js";
+import { verificarValidaciones } from "../middlewares/validaciones.js";
 
 const router = express.Router();
 
-// Validaciones para crear/actualizar horario
-const validarHorario = [
-  body("dia_semana", "Día de semana inválido")
-    .isIn(['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']),
-  body("hora_inicio", "Hora de inicio inválida").matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/),
-  body("hora_fin", "Hora de fin inválida").matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/),
-  body("activo", "Activo debe ser booleano").isBoolean().optional(),
-  body("observaciones", "Observaciones inválidas").isString().optional(),
-];
-
 // Validaciones para consultar disponibilidad
 const validarConsultaDisponibilidad = [
-  query("fecha", "Fecha inválida").isDate({ format: 'YYYY-MM-DD' }),
+  query("fecha", "Fecha inválida").isISO8601().toDate(),
 ];
 
-// GET - Listar todos los horarios
+// GET - Listar todos los horarios de operación
 router.get("/", async (req, res) => {
   try {
     const [rows] = await db.execute(
-      `SELECT * FROM horarios_disponibles ORDER BY 
+      `SELECT * FROM horarios_disponibles 
+       WHERE activo = true
+       ORDER BY 
         FIELD(dia_semana, 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'),
         hora_inicio`
     );
@@ -39,44 +31,18 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET - Obtener horario por ID
-router.get("/:id", validarId, verificarValidaciones, async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-
-    const [rows] = await db.execute(
-      "SELECT * FROM horarios_disponibles WHERE id = ?",
-      [id]
-    );
-
-    if (rows.length === 0) {
-      return res.status(404).json({ 
-        success: false, 
-        message: "Horario no encontrado" 
-      });
-    }
-
-    res.json({ success: true, data: rows[0] });
-  } catch (error) {
-    console.error("Error al obtener horario:", error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Error al obtener horario" 
-    });
-  }
-});
-
-// GET - Consultar disponibilidad para una fecha específica
+// GET - Consultar disponibilidad para una fecha específica (para calendario)
 router.get(
-  "/disponibilidad/fecha",
+  "/disponibilidad",
   validarConsultaDisponibilidad,
   verificarValidaciones,
   async (req, res) => {
     try {
       const { fecha } = req.query;
+      const fechaStr = new Date(fecha).toISOString().split('T')[0];
 
-      // Obtener el día de la semana en español
-      const fechaObj = new Date(fecha + 'T00:00:00');
+      // Obtener el día de la semana
+      const fechaObj = new Date(fechaStr + 'T00:00:00');
       const dias = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
       const diaSemana = dias[fechaObj.getDay()];
 
@@ -88,35 +54,58 @@ router.get(
         [diaSemana]
       );
 
+      // Si no hay horarios, el día está cerrado
       if (horarios.length === 0) {
         return res.json({
           success: true,
           data: {
-            fecha,
+            fecha: fechaStr,
             dia_semana: diaSemana,
             disponible: false,
-            message: "No hay horarios disponibles para este día"
+            message: "El bar está cerrado este día",
+            turnos: []
           }
         });
       }
 
-      // Obtener reservas para esa fecha
+      // Obtener reservas confirmadas o en curso para esa fecha
       const [reservas] = await db.execute(
-        `SELECT hora_inicio, hora_fin, estado 
+        `SELECT hora_inicio, hora_fin, numero_personas, estado
         FROM reservas 
         WHERE fecha_reserva = ? AND estado IN ('confirmada', 'en_curso')
         ORDER BY hora_inicio`,
-        [fecha]
+        [fechaStr]
       );
+
+      // Calcular disponibilidad por turno
+      const turnosDisponibles = horarios.map(horario => {
+        // Verificar si hay conflicto con alguna reserva en este turno
+        const tieneReserva = reservas.some(reserva => {
+          // Hay conflicto si la reserva está dentro del turno
+          return (
+            reserva.hora_inicio < horario.hora_fin &&
+            reserva.hora_fin > horario.hora_inicio
+          );
+        });
+
+        return {
+          turno: horario.observaciones || `${horario.hora_inicio} - ${horario.hora_fin}`,
+          hora_inicio: horario.hora_inicio,
+          hora_fin: horario.hora_fin,
+          disponible: !tieneReserva
+        };
+      });
+
+      const hayDisponibilidad = turnosDisponibles.some(t => t.disponible);
 
       res.json({
         success: true,
         data: {
-          fecha,
+          fecha: fechaStr,
           dia_semana: diaSemana,
-          horarios_operacion: horarios,
-          reservas_existentes: reservas,
-          disponible: reservas.length === 0
+          disponible: hayDisponibilidad,
+          turnos: turnosDisponibles,
+          reservas_existentes: reservas.length
         }
       });
     } catch (error) {
@@ -129,114 +118,52 @@ router.get(
   }
 );
 
-// POST - Crear horario
-router.post("/", validarHorario, verificarValidaciones, async (req, res) => {
-  try {
-    const { dia_semana, hora_inicio, hora_fin, activo, observaciones } = req.body;
-
-    // Validar que hora_fin > hora_inicio
-    if (hora_fin <= hora_inicio) {
-      return res.status(400).json({
-        success: false,
-        message: "La hora de fin debe ser mayor a la hora de inicio"
-      });
-    }
-
-    const [result] = await db.execute(
-      `INSERT INTO horarios_disponibles 
-        (dia_semana, hora_inicio, hora_fin, activo, observaciones) 
-      VALUES (?, ?, ?, ?, ?)`,
-      [
-        dia_semana, 
-        hora_inicio, 
-        hora_fin, 
-        activo !== undefined ? activo : true,
-        observaciones || null
-      ]
-    );
-
-    res.status(201).json({
-      success: true,
-      data: { 
-        id: result.insertId, 
-        dia_semana, 
-        hora_inicio, 
-        hora_fin 
-      },
-    });
-  } catch (error) {
-    console.error("Error al crear horario:", error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Error al crear horario" 
-    });
-  }
-});
-
-// PUT - Actualizar horario
-router.put(
-  "/:id",
-  validarId,
-  validarHorario,
-  verificarValidaciones,
+// GET - Consultar disponibilidad de múltiples fechas (para calendario mensual)
+router.get(
+  "/disponibilidad/rango",
   async (req, res) => {
     try {
-      const id = Number(req.params.id);
-      const { dia_semana, hora_inicio, hora_fin, activo, observaciones } = req.body;
+      const { fecha_inicio, fecha_fin } = req.query;
 
-      // Validar que hora_fin > hora_inicio
-      if (hora_fin <= hora_inicio) {
+      if (!fecha_inicio || !fecha_fin) {
         return res.status(400).json({
           success: false,
-          message: "La hora de fin debe ser mayor a la hora de inicio"
+          message: "Se requieren fecha_inicio y fecha_fin"
         });
       }
 
-      await db.execute(
-        `UPDATE horarios_disponibles 
-        SET dia_semana = ?, hora_inicio = ?, hora_fin = ?, activo = ?, observaciones = ?
-        WHERE id = ?`,
-        [
-          dia_semana, 
-          hora_inicio, 
-          hora_fin, 
-          activo !== undefined ? activo : true,
-          observaciones || null,
-          id
-        ]
+      // Obtener todas las reservas en el rango
+      const [reservas] = await db.execute(
+        `SELECT fecha_reserva, COUNT(*) as cantidad
+        FROM reservas 
+        WHERE fecha_reserva BETWEEN ? AND ? 
+        AND estado IN ('confirmada', 'en_curso')
+        GROUP BY fecha_reserva`,
+        [fecha_inicio, fecha_fin]
       );
+
+      // Crear objeto con disponibilidad por fecha
+      const disponibilidadPorFecha = {};
+      
+      reservas.forEach(r => {
+        disponibilidadPorFecha[r.fecha_reserva] = {
+          tiene_reservas: true,
+          cantidad_reservas: r.cantidad
+        };
+      });
 
       res.json({
         success: true,
-        data: { id, dia_semana, hora_inicio, hora_fin },
+        data: {
+          rango: { inicio: fecha_inicio, fin: fecha_fin },
+          fechas_con_reservas: disponibilidadPorFecha
+        }
       });
     } catch (error) {
-      console.error("Error al actualizar horario:", error);
+      console.error("Error al consultar rango:", error);
       res.status(500).json({ 
         success: false, 
-        message: "Error al actualizar horario" 
-      });
-    }
-  }
-);
-
-// DELETE - Eliminar horario
-router.delete(
-  "/:id",
-  validarId,
-  verificarValidaciones,
-  async (req, res) => {
-    try {
-      const id = Number(req.params.id);
-
-      await db.execute("DELETE FROM horarios_disponibles WHERE id = ?", [id]);
-      
-      res.json({ success: true, data: { id } });
-    } catch (error) {
-      console.error("Error al eliminar horario:", error);
-      res.status(500).json({ 
-        success: false, 
-        message: "Error al eliminar horario" 
+        message: "Error al consultar rango de disponibilidad" 
       });
     }
   }

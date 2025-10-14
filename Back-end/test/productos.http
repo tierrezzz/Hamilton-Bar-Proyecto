@@ -24,12 +24,13 @@ Content-Type: application/json
 }
 
 ### Actualizar producto
-PUT {{url}}/productos/3
+PUT {{url}}/productos/4
 Content-Type: application/json
 
 {
-  "nombre": "Cerveza Artesanal",
+  "nombre": "Cerveza Budweiser ",
   "precio": 9.50,
+  "descripcion": "Cerveza de 475ml",
   "categoria_id": 3
 }
 

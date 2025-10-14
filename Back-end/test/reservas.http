@@ -5,11 +5,11 @@ GET {{url}}/reservas
 Accept: application/json
 
 ### Obtener reservas filtradas por fecha
-GET {{url}}/reservas?fecha=2024-01-15
+GET {{url}}/reservas?fecha=2025-10-16
 Accept: application/json
 
 ### Obtener reserva por ID
-GET {{url}}/reservas/1
+GET {{url}}/reservas/2
 Accept: application/json
 
 ### Crear nueva reserva
@@ -17,11 +17,11 @@ POST {{url}}/reservas
 Content-Type: application/json
 
 {
-  "cliente_id": 1,
+  "cliente_id": 6,
   "fecha_reserva": "2025-10-15",
-  "hora_inicio": "14:00:00",
-  "hora_fin": "16:00:00",
-  "numero_personas": 10
+  "hora_inicio": "18:00:00",
+  "hora_fin": "20:00:00",
+  "numero_personas": 15
   
 }
 

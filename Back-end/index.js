@@ -112,7 +112,7 @@ async function iniciarServidor() {
             console.log(`   CRUD   http://localhost:${PORT}/horarios\n`);
         });
     } catch (error) {
-        console.error('❌ Error al iniciar servidor:', error.message);
+        console.error('Error al iniciar servidor:', error.message);
         process.exit(1);
     }
 }

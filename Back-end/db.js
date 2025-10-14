@@ -15,11 +15,11 @@ export async function conectarDB() {
             port: process.env.DB_PORT || 3306
         });
         
-        console.log('✅ Conectado a MySQL Railway');
-        console.log(`📊 Base de datos: ${process.env.DB_NAME}`);
+        console.log('Conectado a MySQL Railway');
+        console.log(`Base de datos: ${process.env.DB_NAME}`);
         return db;
     } catch (error) {
-        console.error('❌ Error conectando a MySQL:', error.message);
+        console.error('Error conectando a MySQL:', error.message);
         throw error;
     }
 }
@@ -28,6 +28,6 @@ export async function conectarDB() {
 export async function cerrarDB() {
     if (db) {
         await db.end();
-        console.log('🔌 Conexión cerrada');
+        console.log('Conexión cerrada');
     }
 }
