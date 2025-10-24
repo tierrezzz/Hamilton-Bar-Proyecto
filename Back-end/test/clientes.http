@@ -1,4 +1,4 @@
-@url = http://localhost:3000
+@url = https://hamilton-backend-production.up.railway.app
 ### Obtener todos los clientes
 GET {{url}}/clientes
 Accept: application/json
@@ -12,10 +12,10 @@ POST {{url}}/clientes
 Content-Type: application/json
 
 {
-  "nombre": "Facundo",
+  "nombre": "Fernando",
   "apellido": "Gutierrez",
-  "telefono": "+1234567876",
-  "email": "juannnnn@gmail.com"
+  "telefono": "+12334343434",
+  "email": "juannnn@gmail.com"
 }
 
 ### Actualizar cliente
