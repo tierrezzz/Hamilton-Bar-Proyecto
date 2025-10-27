@@ -1,4 +1,4 @@
-@url = https://hamilton-backend-production.up.railway.app
+@url = http://localhost:3000
 ### Obtener todos los clientes
 GET {{url}}/clientes
 Accept: application/json
@@ -12,21 +12,21 @@ POST {{url}}/clientes
 Content-Type: application/json
 
 {
-  "nombre": "Fernando",
-  "apellido": "Gutierrez",
-  "telefono": "+12334343434",
-  "email": "juannnn@gmail.com"
+  "nombre": "Adriel Chad",
+  "apellido": "Barrios",
+  "telefono": "+123344534344",
+  "email": "chadNNn@gmail.com"
 }
 
 ### Actualizar cliente
-PUT {{url}}/clientes/5
+PUT {{url}}/clientes/8
 Content-Type: application/json
 
 {
-  "nombre": "Juan",
-  "apellido": "Perez",
-  "telefono": "+1234567872",
-  "email": "juannito@gmail.com"
+  "nombre": "Adriel Onechan",
+  "apellido": "Barrios",
+  "telefono": "+123344534344",
+  "email": "chadNNn@gmail.com"
 }
 
 ### Eliminar cliente
